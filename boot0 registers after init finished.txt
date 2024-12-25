@@ -1,0 +1,118 @@
+
+CCM
+0x01c20000 0x90001000	cpu pll
+0x01c20028 0x90001811	periph0 pll
+0x01c2004c 0x80002100	ddr1 pll
+0x01c20050 0x00020000	cpu cfg
+0x01c20054 0x00012190	ahb1/apb1
+0x01c20058 0x02030002	apb2
+	60 0x1004040	gating 0
+	64 1001		gating 1
+	68 20		gating 2
+	6c 10000	gating 3
+	70 0		gating 4
+	f0 1		ddr aux
+	f4 80100000	
+	f8 0ccca000
+	fc 80000000
+       100 0
+       15c 81000003	mbus
+       220 08100200	cpu bias
+       234 10100010	periph0 bias
+       244 10100010	periph1 bias
+       24c 10010000	ddr1 bias
+       250 0a101010	scpu tun
+       280 0
+       2a4 0
+       2b4 0
+       2b8 0
+       2c0 01004000	reset 0
+       2c4 00001001	reset 1
+       2d0 1		reset 2
+       2d8 10000	reset 3
+       2dc 0		reset 4
+-- unknown registers
+	20 90044b02
+       230 10090000
+	5c 80020003
+
+TIMER
+0x01c20c00 0
+	 4 0
+	10 4
+	20 4
+	80 1
+	8c 17
+	94 00198d75
+	b4 1
+
+SRAMC
+0x01c00000 0
+	4 01000000
+	10 200
+	14 200
+	18 0
+	24 100
+	28 9
+	40 22222222
+	44 22222222
+	48 0
+	
+DRAMCOM
+0x1c620000 004218c0
+	 4 9f4
+	 c 12b
+	94 ffffffff
+	d0 00103040
+
+DRAMCTL
+0x1c630000 0
+	 c 8000		clken
+	10 1d
+	18 1	
+	2c 0		lp3mr11
+	30 a63		mr0
+	34 0
+	38 0
+	3c 0		mr3
+	44 10		ptr0
+	4c 3def
+	50 0a413ec1
+	54 19913ec1
+	58 090b0d0a dramtmg0
+	5c 2020e    dramtmg1 
+	60 3030307
+	64 200c
+	68 5020304
+	6c 5050403
+	70 2020005
+	74 202
+	78 90006610 dramtmg8
+	7c 04000400 odt cfg
+	80 2010101 pitmg1
+	84 404		pitmg1
+	8c 200010 rfshctl0
+	90 310043 rfshtmg
+	94 0
+	b8 1f vtfcr
+	bc f00000 dqsmgr
+	c0 81000007 dtcr
+       100 4000400 pgcr0
+       104 380c600
+       108 23c0
+       10c c0aa0060
+       11c c400041f dxccr
+       120 201 odtmap
+       140 817b3bfb zqcr
+       208 34a aciocr0
+       210 0
+       214 0
+       344 400002a1 dxcngr0
+       3c4 400002a1 dxcngr1
+       310 0
+       33c 0
+	
+
+
+
+
