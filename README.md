@@ -24,7 +24,7 @@
   sub_37c - i_cache off<br/>
   sub_2cf4 - boot1 loader<br/>
 
- files here is for those who want to dig into asm and help reverse it to make u-boor/linux support for SoC,<br/>
+ files here is for those who want to dig into asm and help reverse it to make u-boot/linux support for SoC,<br/>
  master branch is WIP U-Boot, currently fails to finish DRAM size detect, even though all the registers after init are same as from original boot0.
 
  
