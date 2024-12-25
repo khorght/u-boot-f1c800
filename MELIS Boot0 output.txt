@@ -1,0 +1,64 @@
+[BOOT0] fel_sp = 0x0x0000bbe0.
+[BOOT0] fel_lr = 0x0xffff2e8c.
+[BOOT0] fel_st = 0x0x200000d3.
+[BOOT0] fel_ct = 0x0x00052078.
+[BOOT0] enable jtag mode.
+[BOOT0] jtag pin info:
+[BOOT0] .[0].port = 6
+[BOOT0] .[0].port_num = 0
+[BOOT0] .[0].mul_sel = 4
+[BOOT0] .[0].data = 255
+[BOOT0] .[1].port = 6
+[BOOT0] .[1].port_num = 5
+[BOOT0] .[1].mul_sel = 4
+[BOOT0] .[1].data = 255
+[BOOT0] .[2].port = 6
+[BOOT0] .[2].port_num = 3
+[BOOT0] .[2].mul_sel = 4
+[BOOT0] .[2].data = 255
+[BOOT0] .[3].port = 6
+[BOOT0] .[3].port_num = 1
+[BOOT0] .[3].mul_sel = 4
+[BOOT0] .[3].data = 255
+[BOOT0] .[4].port = 0
+[BOOT0] .[4].port_num = 0
+[BOOT0] .[4].mul_sel = 0
+[BOOT0] .[4].data = 0
+[BOOT0] DRAM BOOT DRIVE INFO: V0.2
+[BOOT0] pll_ddr1 = 816 MHz
+[BOOT0] MC_WORK_MODE is 0x004218c0
+[BOOT0] Auto calculate timing parameter!
+[BOOT0] PGCR2 is 0x000023c0
+[BOOT0] DRAMC read ODT type : 0 (0: off  1: dynamic on).
+[BOOT0] DXnGCR0 = 0x400002a1
+[BOOT0] DRAM DQS gate is PD mode.
+[BOOT0] DRAM initial PIR value is 0x00000173
+[BOOT0] DRAM CLK =408 MHZ
+[BOOT0] DRAM Type =2 (2:DDR2,3:DDR3)
+[BOOT0] DRAM zq value: 0x0x003b3bfb
+[BOOT0] pll_ddr1 = 816 MHz
+[BOOT0] MC_WORK_MODE is 0x004218c0
+[BOOT0] Auto calculate timing parameter!
+[BOOT0] PGCR2 is 0x000023c0
+[BOOT0] DRAMC read ODT type : 0 (0: off  1: dynamic on).
+[BOOT0] DXnGCR0 = 0x400002a1
+[BOOT0] DRAM DQS gate is PD mode.
+[BOOT0] DRAM initial PIR value is 0x00000173
+[BOOT0] DRAM SIZE =64 M
+[BOOT0] HDR/DDR dynamic mode!
+[BOOT0] DQ hold enable!
+[BOOT0] DRAM master priority setting ok.
+[BOOT0] DRAM simple test OK.
+[BOOT0] ccmu info:
+[BOOT0] .PLL_CPU = 408M
+[BOOT0] .PLL_PERIPH0 = 600M
+[BOOT0] .PLL_DDR1 = 816M
+[BOOT0] .CPU = 408M
+[BOOT0] .AHB1 = 200M
+[BOOT0] .APB1 = 100M
+[BOOT0] .APB2 = 50M
+[BOOT0] .MBUS = 300M
+[BOOT0] load boot1 from spinor
+[BOOT0] init spinor OK
+[BOOT0] fail in loading BOOT1
+[BOOT0] jump to fel
