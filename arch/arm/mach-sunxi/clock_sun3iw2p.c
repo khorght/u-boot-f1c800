@@ -16,6 +16,28 @@
 #include <asm/gpio.h>
 #include <asm/arch/gpio.h>
 
+void sunxi_delay(volatile  unsigned int n)
+{
+/*    n = n * 100;
+
+    while (--n)
+        ;*/
+/*
+	do {
+		// ARM926EJ-S code do not have sdelay
+		volatile int i = 200;
+
+		while (i > 0) i--;
+	} while(0);
+*/	
+	unsigned int reg_val, cnt;
+	reg_val = readl(0x01c20c84);
+	cnt = n + (reg_val << 1);
+	while ((readl(0x01c20c84)<<1) < cnt)
+		;
+	
+}
+
 #ifdef CONFIG_SPL_BUILD
 void clock_init_safe(void)
 {
@@ -23,6 +45,10 @@ void clock_init_safe(void)
 	
 	struct sunxi_ccm_reg * const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
+	
+	reg_val = 0;
+	writel(reg_val, 0x01c00000);
+	// Plus boot0  saves 0x01c00004 in Stack, Why? What for?
 	
 	/* Open Gate for PIO */
 	setbits_le32(&ccm->apb1_gate, (1<<5));
@@ -33,41 +59,53 @@ void clock_init_safe(void)
 	
 	/* Set CPU clock to default 800MHz */
 	clock_set_pll1(800000000); /* Argument here meaningless, we set to mandatory value */
+	sunxi_delay(10);
+	
 	/* Set Periph0(2x) to default 1.2MHz */
 	clock_set_pll6(1200000000);
+	sunxi_delay(10);
 	
-	clock_set_pll10(297000000); // Default value for DE
+	// Default value for DE
+	clock_set_pll10(297000000);
+	sunxi_delay(10);
 	
 	/* Set Periph1(2x) to default 1.2MHz */
 	clrbits_le32(&ccm->pll_lock_ctrl, CCM_PLL_LOCK_PERIPH1);
 	writel(0x00001811, &ccm->pll9_cfg);
 	setbits_le32(&ccm->pll9_cfg, CCM_PLL9_CTRL_EN);
 	setbits_le32(&ccm->pll_lock_ctrl, CCM_PLL_LOCK_PERIPH1);
-	while (!(readl(&ccm->pll9_cfg) & CCM_PLL9_CTRL_LOCK))
+	while ((readl(&ccm->pll9_cfg) & CCM_PLL9_CTRL_LOCK) == 0)
 		;
 	
 	/* Set AHB, APB1 */
 	/* Note: First set PRE_DIV, the switch source */
 	/* Note: For AHB1 - first sshould be changed source (Peripn0(1x)), then prediv */
 	/* AHB1 - Periph0(1x)/4, APB1=AHB1/2, HCLK=CPUCLK */
-	writel(0x000031A0, &ccm->ahb1_apb1_div);
-	//writel(0x00012190, &ccm->ahb1_apb1_div); // value from original boot0
+	//writel(0x000031A0, &ccm->ahb1_apb1_div);
 	// at startup it's 13180 -> AHB1/3, APB1=AHB1/2, AHB1 src - Periph0(1x), HCLK=CPUCLK/2 
+	/*clrbits_le32(&ccm->ahb1_apb1_div, 0x30);
+	clrsetbits_le32(&ccm->ahb1_apb1_div, 0x40, 0x80);
+	clrsetbits_le32(&ccm->ahb1_apb1_div, 0x200, 0x100);
+	setbits_le32(&ccm->ahb1_apb1_div, 0x3000);
+	clrsetbits_le32(&ccm->ahb1_apb1_div, 0x20000, 0x10000);*/
+	writel(0x00012190, &ccm->ahb1_apb1_div); // boot0 value
+	sunxi_delay(10);
 	
 	/* Set APB2 (used by UART/TWI/SCR */
+	// value from original boot0 -> periph0(2x)/8/3 = 50MHz -> 0x02030002
+	// We don't use it to not interfere standart uart driver, seems it wants 24MHz as src
+	//writel(0x02030002, &ccm->apb2_div);
 	writel(0x01000000, &ccm->apb2_div); // Default is source OSC24M, div=1, prediv=1
-	//writel(0x02030002, &ccm->apb2_div); // value from original boot0 -> periph0(2x)/8/3 = 50MHz
+	sunxi_delay(10);
 	
-	/* Deassert reset, configure MBUS */
-	setbits_le32(&ccm->mbus_reset, CCM_MBUS_RESET_RESET);
-	writel(0x01000003, &ccm->mbus0_clk_cfg);	// Set Src to PLL_PERIPH0(2X), div 3+1 -> Peiprh0(2X)/4 -> 300MHz
-	//setbits_le32(&ccm->mbus0_clk_cfg, 0x80000000);
-	do {
-		/* ARM926EJ-S code do not have sdelay */
-		volatile int i = 10000;
-
-		while (i > 0) i--;
-	} while(0);
+	/* Deassert MBUS reset */
+	// commented - no such in original boot0
+	//setbits_le32(&ccm->mbus_reset, CCM_MBUS_RESET_RESET);
+	//writel(0x01000003, &ccm->mbus0_clk_cfg);	// Set Src to PLL_PERIPH0(2X), div 3+1 -> Peiprh0(2X)/4 -> 300MHz
+	clrsetbits_le32(&ccm->mbus0_clk_cfg, 0x2000000, 0x1000000);
+	clrsetbits_le32(&ccm->mbus0_clk_cfg, 4, 3);
+	setbits_le32(&ccm->mbus0_clk_cfg, 0x80000000);
+	sunxi_delay(10);
 	
 	/* Unknown registers and unknown purpose, but this part of code is present in original boot0 */
 	reg_val = readl(&ccm->bus_reset2_cfg);
@@ -77,11 +115,11 @@ void clock_init_safe(void)
 	reg_val = readl(0x01c20320);
 	reg_val &= ~0x10;
 	writel(reg_val, 0x01c20320);
-	/* Unknown register */
+	/* Enable something in unknown register */
 	reg_val = readl(0x01c20020);
 	reg_val |= 0x80000000;
 	writel(reg_val, 0x01c20020);
-	/* Enable unknown pll lock */
+	/* Enable pll lock for unknown */
 	reg_val = readl(0x01c20320);
 	reg_val |= 0x10;
 	writel(reg_val, 0x01c20320);
@@ -90,45 +128,21 @@ void clock_init_safe(void)
 	/* Unknown register */
 	reg_val = 0x10090000;
 	writel(reg_val, 0x01c20230);
-	do {
-		/* ARM926EJ-S code do not have sdelay */
-		volatile int i = 10000;
-
-		while (i > 0) i--;
-	} while(0);
+	sunxi_delay(50);
+	
+	
 	/* Unknown register */
-	reg_val = readl(0x01c2005c);
-	reg_val |= 0x80000000;
-	writel(reg_val, 0x01c2005c);
-	reg_val = readl(0x01c2005c);
-	reg_val &= ~0x10000;
-	reg_val |= 0x20000;
-	writel(reg_val, 0x01c2005c);
-	reg_val = readl(0x01c2005c);
-	reg_val |= 3;
-	writel(reg_val, 0x01c2005c);
-	/* In original boot0 after all clocks are set i-cache enable made */
-	//MRC             p15, 0, R0,c1,c0, 0
-	//ORR             R0, R0, #0x1000											set bit 12 (I) I-cache
-	//MCR             p15, 0, R0,c1,c0, 0	
-	// U-Boot states that i_cache is enabled in start.S, additionally we may 
-	// enable d-cache, in mach-sunxi/board.c, at the end there is a function for it
-	// U-boot says it called immidiately after relocation https://github.com/ARM-software/u-boot/blob/master/doc/README.arm-caches
-	//dcache_enable();
-
+	setbits_le32(0x01c2005c, 0x80000000);
+	clrsetbits_le32(0x01c2005c, 0x10000, 0x20000);
+	setbits_le32(0x01c2005c, 3);
 	
-	
-	/* After UART one more init happens - AVS, but try to place it here */
-	reg_val = readl(&ccm->avs_clk_cfg);
-	reg_val |= 0x80000000;
-	writel(reg_val, &ccm->avs_clk_cfg);
+	/* AVS - Audio-Video-sync counter init */
+	setbits_le32(&ccm->avs_clk_cfg,  0x80000000);
 	reg_val = 0x17;
-	writel(reg_val, 0x01c20c8c);
+	writel(reg_val, 0x01c20c8c);		//avs cnt divider reg		
 	reg_val = 0;
-	writel(reg_val, 0x01c20c84);
-	reg_val = readl(0x01c20c80);
-	reg_val |= 1;
-	writel(reg_val, 0x01c20c80);
+	writel(reg_val, 0x01c20c84);		//avs cnt0
+	setbits_le32(0x01c20c80, 1);		//avs cnt ctl
 }
 #endif
 
@@ -162,7 +176,7 @@ void clock_set_pll1(unsigned int clk)
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
 	
 	unsigned int k, m, n, value, diff;
-	unsigned best_k = 0, best_m = 0, best_n = 0, best_diff = 0xffffffff;
+//	unsigned best_k = 0, best_m = 0, best_n = 0, best_diff = 0xffffffff;
 
 	// Clk may be 200MHz ~ 2.1GHz
 	if (clk > 2100000000) clk = 2100000000;
@@ -170,7 +184,7 @@ void clock_set_pll1(unsigned int clk)
 	
 	// All calculations are in KHz to avoid overflows
 	/* PLL_CPU = (24000000*N*K)/(M*P) */
-	clk /= 1000;
+/*	clk /= 1000;
 	// Pick the closest lower clock
 	for (k = 1; k <= 4; k++) {
 		for (m = 1; m <= 4; m++) {
@@ -191,7 +205,7 @@ void clock_set_pll1(unsigned int clk)
 			}
 		}
 	}
-
+*/
 done:
 	// 768MHz -> n = 16, k = 2, m = 1, p = 0(/1)
 	
@@ -200,12 +214,7 @@ done:
 	/* Switch to 24MHz clock while changing PLL1 */
 	writel((CPU_CLK_SRC_OSC24M << CPU_CLK_SRC_SHIFT), &ccm->cpu_axi_cfg);
 	/* Delay at least 10uS */
-	do {
-		/* ARM926EJ-S code do not have sdelay */
-		volatile int i = 100;
-
-		while (i > 0) i--;
-	} while(0);
+	sunxi_delay(10);
 	
 	/* Set PLL */
 /*	writel(CCM_PLL1_CTRL_N(best_n) |
@@ -227,12 +236,9 @@ done:
 	while ((readl(&ccm->pll1_cfg) & CCM_PLL1_CTRL_LOCK) == 0)
 		;
 	/* Delay at least 20uS */
-	do {
-		/* ARM926EJ-S code do not have sdelay */
-		volatile int i = 200;
-
-		while (i > 0) i--;
-	} while(0);
+	sunxi_delay(20);
+	/* PLL CPU Lock disable */
+	//clrbits_le32(&ccm->pll_lock_ctrl, CCM_PLL_LOCK_CPU);
 	/* Switch CPU to PLL1 */
 	writel(CPU_CLK_SRC_PLL1 << CPU_CLK_SRC_SHIFT, &ccm->cpu_axi_cfg);
 }
@@ -312,13 +318,14 @@ void clock_set_pll6(unsigned int clk)
 	/* PLL6 Lock disable */
 	clrbits_le32(&ccm->pll_lock_ctrl, CCM_PLL_LOCK_PERIPH0);
 	/* Set Periph0(2x) to default 1.2MHz */
-	writel(0x90001811, &ccm->pll6_cfg);
+	writel(0x80001811, &ccm->pll6_cfg);
 	/* PLL6 Lock enable */
 	setbits_le32(&ccm->pll_lock_ctrl, CCM_PLL_LOCK_PERIPH0);
 	
 	while ((readl(&ccm->pll6_cfg) & CCM_PLL6_CTRL_LOCK) == 0)
 		;
-	
+	/* PLL6 Lock disable */
+	//clrbits_le32(&ccm->pll_lock_ctrl, CCM_PLL_LOCK_PERIPH0);
 }
 
 #ifdef CONFIG_MACH_SUN6I
@@ -381,7 +388,7 @@ void clock_set_pll10(unsigned int clk)
 	
 	struct sunxi_ccm_reg * const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
-	const int m = 2; /* 12 MHz steps */
+	//const int m = 2; /* 12 MHz steps */
 
 	if (clk == 0) {
 		clrbits_le32(&ccm->pll10_cfg, CCM_PLL10_CTRL_EN);
@@ -415,6 +422,7 @@ void clock_set_pll10(unsigned int clk)
 // DDR1
 void clock_set_pll11(unsigned int clk, bool sigma_delta_enable)
 {
+	return;
 	struct sunxi_ccm_reg * const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
 

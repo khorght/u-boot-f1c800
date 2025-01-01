@@ -29,27 +29,18 @@ unsigned int dram_simple_test(unsigned int dram_size, unsigned int len);
 unsigned int do_dram_init(__dram_para_t *para);
 
 
-//PUT INHEADER FILE
+
 static inline int ns_to_t(int ns, unsigned int freq)
 {
-	//(((freq*ns) + (1000) - 1) / (1000))
-	//return DIV_ROUND_UP(freq * ns, 1000);
 	return ((ns*freq)/1000 + (((ns*freq)%1000 != 0)?1:0));
 }
-
-
-
-
 
 //from mctl_standby.c
 void dram_enable_all_master(void)
 {
     /* enable all master */
     writel(0xffffffff, MC_MAER);
-	writel((0xa << 1), 0x01C20C84);
-	while (readl(0x01C20C84) & (0xa << 1))
-		;
-    udelay(10);
+    sunxi_delay(10);
 }
 
 //from mctl_standby.c
@@ -57,7 +48,7 @@ void dram_disable_all_master(void)
 {
     /* disable all master except cpu/cpus */
     writel(0x1, MC_MAER);
-    udelay(10);
+    sunxi_delay(10);
 }
 
 void set_master_priority(void)
@@ -117,12 +108,12 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 	clrsetbits_le32(PGCR2, 0xf00, 0x300);
 	
 	reg_val=readl(PGCR2);
-	printf("PGCR2 is %x\n", reg_val);
+//	printf("PGCR2 is %x\n", reg_val);
 	
 	/***********************************
     Function : AC/DX IO Configuration
      **********************************/
-	printf("DRAMC read ODT type : %d (0: off  1: dynamic)\n", para->dram_odt_en);
+//	printf("DRAMC read ODT type : %d (0: off  1: dynamic)\n", para->dram_odt_en);
 
 	odt = ((~(para->dram_odt_en)) << 5) & 0x20;
 	reg_val = readl(DXnGCR0(0)) & ~0x30;
@@ -147,7 +138,7 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 		reg_val &= ~0x1e;
 	}
 	writel(reg_val, DXnGCR0(1));
-	printf("DXnGCR0 = %x\n", reg_val);
+//	printf("DXnGCR0 = %x\n", reg_val);
 	clrsetbits_le32(ACIOCR0, 0x800, 2);
 	
 	/***********************************
@@ -163,13 +154,13 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 		reg_val = readl(DQSGMR);
 		reg_val &= ~0x107;
 		writel(reg_val, DQSGMR);
-		printf("DRAM DQS gate is open.\n");
-	} else { // addr:1714
+//		printf("DRAM DQS gate is open.\n");
+	} else {
 		clrbits_le32(PGCR2, 0x40);
 		setbits_le32(PGCR2, 0xc0);
-		printf("DRAM DQS gate is PD mode.\n");
+//		printf("DRAM DQS gate is PD mode.\n");
 	}
-	printf("DQGGMR:0x%08x\n", readl(DQSGMR));
+//	printf("DQGGMR:0x%08x\n", readl(DQSGMR));
 	/***********************************
     Function : Training
      **********************************/
@@ -177,12 +168,12 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 	reg_val &= 0xf0000000;
 	reg_val |= 0x01003087;
 	writel(reg_val, DTCR);			// one rank
-	printf("DTCR:0x%08x\n", readl(DTCR));
+//	printf("DTCR:0x%08x\n", readl(DTCR));
 	/* ZQ pad release */
 	reg_val = readl(0x01c215f4);	//VDD_SYS_PWROFF_GATING
 	reg_val = 0;					// in mctl_standy it's &= ~(0x1<<1))
 	writel(reg_val, 0x01c215f4);	//VDD_SYS_PWROFF_GATING
-	udelay(10);
+	sunxi_delay(10);
 	/* ZQ calibration */
 	reg_val = readl(ZQCR);
 	reg_val &= ~0xffff;
@@ -197,18 +188,18 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 		do {
 			reg_val = readl(PGSR0);
 		} while ((reg_val & 1) != 1);
-		udelay(10);
-		if (para->dram_type	== 3) reg_val = 0x5a0;				//in mctl_stanby here just 0x420 without contitions
+		sunxi_delay(10);
+		if (para->dram_type	== 3) reg_val = 0x5a0;
 		else reg_val = 0x520;	
 	} else {
-		if (para->dram_type == 3) reg_val = 0x1f2;				//in mctl_stanby here just 0x62 without contitions
+		if (para->dram_type == 3) reg_val = 0x1f2;
 		else reg_val = 0x172;
 	}
 	writel(reg_val, PIR);
 	reg_val |= 1;
 	writel(reg_val, PIR);
-	printf("DRAM initial PIR value is %x\n", reg_val);
-	udelay(10);
+//	printf("DRAM initial PIR value is %x\n", reg_val);
+	sunxi_delay(10);
 	do {
 		reg_val = readl(PGSR0);
 	} while ((reg_val & 1) != 1);
@@ -216,50 +207,50 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 //	printf("ZQCR:0x%08x\n", readl(ZQCR));	
 	//"[DEBUG_4]PGSR0 = 0x%x\n"
 	/////////////////////////////////////////////////////////////////
-	// START OF part from mctl_stanby abscent here
+	// START OF part from mctl_stanby
 	/////////////////////////////////////////////////////////////////
-    reg_val = readl(PGCR3);
-    reg_val &= (~(0x3 << 25));
-    reg_val |= (0x2 << 25);
-    writel(reg_val, PGCR3);
-    udelay(10);
+//    reg_val = readl(PGCR3);
+//    reg_val &= (~(0x3 << 25));
+//    reg_val |= (0x2 << 25);
+//    writel(reg_val, PGCR3);
+//    sunxi_delay(10);
     /* entry self-refresh */
-    reg_val = readl(PWRCTL);
-    reg_val |= 0x1 << 0;
-    writel(reg_val, PWRCTL);
+//    reg_val = readl(PWRCTL);
+//    reg_val |= 0x1 << 0;
+//    writel(reg_val, PWRCTL);
 
-    while (((readl(STATR) & 0x7) != 0x3))
+//    while (((readl(STATR) & 0x7) != 0x3))
         ;
     /* pad release */
-    reg_val = readl(VDD_SYS_PWROFF_GATING);	// VDD_SYS_PWROFF_GATING        (0xf1c21400 + 0x1f4)
-    reg_val &= ~(0x1 << 0);
-    writel(reg_val, VDD_SYS_PWROFF_GATING);	// VDD_SYS_PWROFF_GATING        (0xf1c21400 + 0x1f4)
-    udelay(10);
+//    reg_val = readl(VDD_SYS_PWROFF_GATING);	// VDD_SYS_PWROFF_GATING        (0xf1c21400 + 0x1f4)
+//    reg_val &= ~(0x1 << 0);
+//    writel(reg_val, VDD_SYS_PWROFF_GATING);	// VDD_SYS_PWROFF_GATING        (0xf1c21400 + 0x1f4)
+//    sunxi_delay(10);
     /* exit self-refresh but no enable all master access */
-    reg_val = readl(PWRCTL);
-    reg_val &= ~(0x1 << 0);
-    writel(reg_val, PWRCTL);
+//    reg_val = readl(PWRCTL);
+//    reg_val &= ~(0x1 << 0);
+//    writel(reg_val, PWRCTL);
 
-    while (((readl(STATR) & 0x7) != 0x1))
-        ;
-    udelay(15);
+//    while (((readl(STATR) & 0x7) != 0x1))
+//        ;
+//    sunxi_delay(15);
     /* training :DQS gate training */
-    if (((para->dram_tpr13 >> 2) & 3) == 1) //dqs_gating_mode
-    {
-        reg_val = readl(PGCR2);
-        reg_val &= ~(0x3 << 6);
-        writel(reg_val, PGCR2);
-        reg_val = readl(PGCR3);
-        reg_val &= (~(0x3 << 25));
-        reg_val |= (0x1 << 25);
-        writel(reg_val, PGCR3);
-        udelay(1);
-        reg_val = 0x401;
-        writel(reg_val, PIR);
+//    if (((para->dram_tpr13 >> 2) & 3) == 1) //dqs_gating_mode
+//    {
+//        reg_val = readl(PGCR2);
+//        reg_val &= ~(0x3 << 6);
+//        writel(reg_val, PGCR2);
+//        reg_val = readl(PGCR3);
+//        reg_val &= (~(0x3 << 25));
+//        reg_val |= (0x1 << 25);
+//        writel(reg_val, PGCR3);
+//        sunxi_delay(1);
+//        reg_val = 0x401;
+//        writel(reg_val, PIR);
 
-        while ((readl(PGSR0) & 0x1) != 0x1)
-            ;
-    }
+//        while ((readl(PGSR0) & 0x1) != 0x1)
+//            ;
+//    }
 	/////////////////////////////////////////////////////////////////
 	// END OF part from mctl_stanby abscent here
 	/////////////////////////////////////////////////////////////////
@@ -272,7 +263,7 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 	
 	if (reg_val & 0xff) {
 		ret = 0;
-		printf("Training Error - PGSR0:0x%x\n", reg_val);
+//		printf("Training Error - PGSR0:0x%x\n", reg_val);
 		if (reg_val & 1) {
 			printf("ZQ calibration error,check external 240 ohm resistor\n");
 		}
@@ -285,11 +276,11 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 		reg_val = readl(STATR);
 	} while ((reg_val & 1) != 1);
 	setbits_le32(RFSHCTL0, 0x800000000);
-	udelay(10);	
+	sunxi_delay(10);	
 	clrbits_le32(RFSHCTL0, 0x800000000);
-	udelay(10);
+	sunxi_delay(10);
 	setbits_le32(MC_CCCR, 0x800000000);
-	udelay(10);
+	sunxi_delay(10);
 	clrbits_le32(PGCR3, 0x6000000);
 	/***********************************
     DQS GATE debug
@@ -312,7 +303,6 @@ void ccm_set_pll_ddr1_sscg(__dram_para_t *para)
     /* Calculate PLL_STEP */
     pll_step = (para->dram_tpr13 >> 16) & 0xf; // r4
     if (pll_step >= 9) pll_step = 9;
-
     /* Calculate PLL_SSC */
     ret = (para->dram_tpr13 >> 20) & 0x7; // r0
 
@@ -339,9 +329,7 @@ void ccm_set_pll_ddr1_sscg(__dram_para_t *para)
             pll_ssc = (pll_ssc * (1 << pll_step));
         }
     }
-	//fa4
 	pll_ssc = pll_ssc >> pll_step;
-	//12e4
 	/*Configure PLL_SSC and PLL_STEP */
 	reg_val = readl(&ccm->dram_pll1_cfg);
 	reg_val &= ~0x1ffff00f;
@@ -351,7 +339,7 @@ void ccm_set_pll_ddr1_sscg(__dram_para_t *para)
 	reg_val = readl(&ccm->pll11_cfg);
 	reg_val |= 0x40000000;
 	writel(reg_val, &ccm->pll11_cfg);
-	udelay(20);
+	sunxi_delay(20);
 	/*Enable Linear Frequency Modulation*/
 	reg_val = readl(&ccm->dram_pll1_cfg);
 	reg_val |= 0x80000000;
@@ -363,7 +351,7 @@ void ccm_set_pll_ddr1_sscg(__dram_para_t *para)
 	do {
 		reg_val = readl(&ccm->pll11_cfg);
 	} while ((reg_val & 0x40000000) != 0);
-	udelay(20);
+	sunxi_delay(20);
 }	
 
 // ret: pll clock in MHz
@@ -386,21 +374,21 @@ unsigned int ccm_set_pll_ddr1_clk(__dram_para_t *para)
     reg_val &= ~0x7f00;
 	reg_val &= ~0x3;
     reg_val |= ((div - 1) << 8);
-	reg_val |= 0x80000000;
-    writel(reg_val, &ccm->pll11_cfg);
-    /*Update PLL Configuration */
-    reg_val |= 0xc0000000;
 	writel(reg_val, &ccm->pll11_cfg);
+	/* Enable DDR1 PLL clock */
+	setbits_le32(&ccm->pll11_cfg, 0x80000000);
+    /* Validate PLL Configuration */
+	setbits_le32(&ccm->pll11_cfg, 0x40000000);
+	while ((readl(&ccm->pll11_cfg) & 0x40000000) != 0) //bit30 cleared - valid
+		;
 	/* Enable PLL_DDR1 LOCK Function */
     setbits_le32(&ccm->pll_lock_ctrl, 0x400);
-	/* Poll PLL valid and locked (bit30 cleared, bit 28 set) */
-    do {
-    	reg_val = readl(&ccm->pll11_cfg);
-	} while ((reg_val & 0x50000000) != 0x10000000);
+	/* Poll PLL valid and locked */
+    while ((readl(&ccm->pll11_cfg) & 0x10000000) != 0) //bit28 set - locked
+		;
     /*Disable PLL_DDR1 LOCK Function */
     clrbits_le32(&ccm->pll_lock_ctrl, 0x400);
-	udelay(10);
-
+	sunxi_delay(10);
     /*Configure CLK Spread Spectrum */
     ccm_set_pll_ddr1_sscg(para);
     return 24 * div;
@@ -427,34 +415,31 @@ void mctl_clk_init(__dram_para_t *para)
 	unsigned int ret;
 	struct sunxi_ccm_reg *const ccm =
 		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
-	
 	clrbits_le32(&ccm->mbus0_clk_cfg, 0x80000000);	// Turn Off MBUS CLK
 	clrbits_le32(&ccm->mbus_reset, 0x80000000);		// MBUS Domain Reset
 	clrbits_le32(&ccm->ahb_gate0, 0x4000);			// Turn Off AHB Domain CLK
 	clrbits_le32(&ccm->bus_reset0_cfg, 0x4000);		// AHB Domain Reset
-	reg_val = readl(&ccm->pll11_cfg);				// Turn Off PLL_DDR1
-	reg_val &= ~ 0x80000000;
-	writel(reg_val, &ccm->pll11_cfg);					
-	reg_val |= 0x40000000;
-	writel(reg_val, &ccm->pll11_cfg);
+	clrbits_le32(&ccm->pll11_cfg, 0x80000000);		// Turn-off DDR1 PLL
+	setbits_le32(&ccm->pll11_cfg, 0x40000000);		// Validate - What For ??????????????????
 	clrbits_le32(&ccm->dram_clk_cfg, 0x80000000);	// DRAM Controller Reset
-	udelay(10);
-	// Try setting desired DDR PLL Freq, or set to default minimal 384MHz
+	sunxi_delay(10);
+
 	ret = ccm_set_pll_ddr1_clk(para);				// returns ddr pll clock
-	//clock_set_pll11(para->dram_clk, false);
+	//clock_set_pll11(para->dram_clk, false);		// external function from clock_sun3iw2p
 	
 	reg_val = readl(&ccm->dram_clk_cfg);
-	reg_val &= ~ 0x300000;
-	reg_val |= 0x100000;
+	reg_val &= ~0x300000;							// DRAM Controller clk becomes DDR1_PLL
+	reg_val |= 0x100000;							// Use Periph0(2x) 
 	para->dram_clk = ret >> 1;						// ddr_pll / 2
 	//printf("pll_ddr1 = %d MHz\n", ret);
-	udelay(10);
-	writel(reg_val, &ccm->dram_clk_cfg);			// Set clk source to Periph0(2x)
-	udelay(10);
-	reg_val = reg_val | 0x110000;					// Validate configuration
+	sunxi_delay(10);
+	writel(reg_val, &ccm->dram_clk_cfg);			//
+	sunxi_delay(10);
+	reg_val |= 0x110000;							// Validate configuration
 	writel(reg_val, &ccm->dram_clk_cfg);
-	udelay(10);
+	sunxi_delay(10);
 	setbits_le32(&ccm->bus_reset0_cfg, 0x4000);		// Release AHB Domain Reset
+	writel(0x4000, &ccm->bus_reset0_cfg);
 	setbits_le32(&ccm->ahb_gate0, 0x4000);			// Turn On AHB Domain CLK
 	
 	dram_disable_all_master();						// Disable Master Access Right
@@ -462,10 +447,10 @@ void mctl_clk_init(__dram_para_t *para)
 	setbits_le32(&ccm->mbus_reset, 0x80000000);		// Release MBUS Domain Reset
 	setbits_le32(&ccm->mbus0_clk_cfg, 0x80000000);	// Turn On MBUS Domain CLK
 	setbits_le32(&ccm->dram_clk_cfg, 0x80000000);	// Release DRAM Controller Reset
-	udelay(10);
+	sunxi_delay(10);
 	reg_val = 0x8000;
 	writel(reg_val, CLKEN);							// Enable DRAM Controller CLK
-	udelay(10);
+	sunxi_delay(10);
 }
 
 void mctl_com_init(__dram_para_t *para)
@@ -480,7 +465,7 @@ void mctl_com_init(__dram_para_t *para)
 	reg_val |= 0x400000;		
 	reg_val |= 0x1000;
 	writel(reg_val, MC_WORK_MODE);
-	udelay(10);
+	sunxi_delay(10);
 	
 	reg_val = readl(MC_WORK_MODE) & ~0xfff;
 	reg_val |= (para->dram_para1 >> 10) & 4;
@@ -505,7 +490,7 @@ void mctl_com_init(__dram_para_t *para)
 	}
 	writel(reg_val, MC_WORK_MODE);
 	//printf("MC_WORK_MODE is %x\n", reg_val);
-	udelay(10);
+	sunxi_delay(10);
 	reg_val = 0x201;
 	writel(reg_val, ODTMAP);
 }
@@ -553,9 +538,9 @@ void auto_set_timing_para(__dram_para_t *para)
 	unsigned int reg_val;
 
 	
-	if ((para->dram_tpr13 & 2) == 0) {					// d68
-		printf("Auto calculate timing parameter!\n");
-		if (para->dram_type == 3) { //1060
+	if ((para->dram_tpr13 & 2) == 0) {
+//		printf("Auto calculate timing parameter!\n");
+		if (para->dram_type == 3) {
 			tfaw = ns_to_t(50, para->dram_clk/2);				//var_70
 			trrd = ns_to_t(10, para->dram_clk/2);
 			if (trrd < 2) trrd = 2;				  				//var_78		
@@ -569,7 +554,7 @@ void auto_set_timing_para(__dram_para_t *para)
 			tras = ns_to_t(38, para->dram_clk/2);				//var_6c
 			trefi = ns_to_t(7800, para->dram_clk/2) >> 5; 		//var_7c
 			trfc = ns_to_t(350, para->dram_clk/2);				//var_64
-		} else if (para->dram_type == 2) { //1188
+		} else if (para->dram_type == 2) {
 			tfaw = ns_to_t(50, para->dram_clk / 2);				//var 70
 			trrd = ns_to_t(10, para->dram_clk / 2);				//var_78
 			trcd = ns_to_t(20, para->dram_clk / 2);				//r11
@@ -582,7 +567,7 @@ void auto_set_timing_para(__dram_para_t *para)
 			tras = ns_to_t(45, para->dram_clk / 2);				//var_6c
 			trefi = ns_to_t(7800, para->dram_clk / 2) >> 5; 	//var_7c changed from 7500
 			trfc = ns_to_t(328, para->dram_clk / 2);			//var_64
-		} else {	 //1230
+		} else {
 			tfaw = 0x10;		//var_70
 			trrd = 3;			//var_78
 			trcd = 6;			//r11
@@ -596,7 +581,6 @@ void auto_set_timing_para(__dram_para_t *para)
 			trefi = 0x62;		//var_7c
 			trfc = 0x80;		//var_64
 		}
-		//1124
 		//				 var_74   r11          var_78		   var_70         var_2c aka tccd
 		para->dram_tpr0 = trc | (trcd << 6) | (trrd << 11) | (tfaw << 15) | 0x400000;
 		//				var_6c	  r5			r9			var_5c			var_5c			var_68	
@@ -605,7 +589,7 @@ void auto_set_timing_para(__dram_para_t *para)
 		para->dram_tpr2 = trefi | (trfc << 12);
 		tccd = 2;
 	} else {
-		printf("User defined timing parameters!\n");
+//		printf("User defined timing parameters!\n");
 		tfaw = (para->dram_tpr0 >> 15) & 0x3f;				 		//var_70
 		trrd = (para->dram_tpr0 >> 11) & 0xf; 						//var_78
 		trcd = (para->dram_tpr0 >> 6) & 0x1f; 						//r11
@@ -644,7 +628,6 @@ void auto_set_timing_para(__dram_para_t *para)
 		mr3 = 0;																//r1
 		trd2wr = tcl;															//var_34
 		tmrd = 2;																//r6
-		
 	} else if (para->dram_type == 3) {
 		trasmax = para->dram_clk / 30;											//var_3c
 		tdinit0 = para->dram_clk * 500 + 1;										//var_60
@@ -668,7 +651,7 @@ void auto_set_timing_para(__dram_para_t *para)
 		mr2 = 0x18;																//r1
 		mr3 = 0x18;																//r1
 		mr0 = 0x1c70;															//var_4c
-	} else { //...fe8
+	} else {
 		twr2rd = 8;			//var_38
 		trasmax = 0x1b;		//var_3c
 		tmod = 6;			//var_40
@@ -692,7 +675,6 @@ void auto_set_timing_para(__dram_para_t *para)
 		tcksrx = 4;			//r12
 		tcksre = 4;			//r12
 	}
-	//132c
 	
 	if ((trtp + trp) < (tcl + 2)) trtp = (2 - trp) + tcl; 	//
 	if ((para->dram_mr0 >> 16) == 0) para->dram_mr0 = mr0;	//var_4c
@@ -745,31 +727,36 @@ unsigned int dram_autodetect_size(__dram_para_t *para)
 {
 	unsigned int i=0, j=0;
 	unsigned int ret=1;
-	
 	mctl_clk_init(para);
 	mctl_com_init(para);
 	auto_set_timing_para(para);
 	ret = mctl_channel_init(0, para);
-	
-	struct sunxi_ccm_reg *const ccm =
-		(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
+	//struct sunxi_ccm_reg *const ccm =
+	//	(struct sunxi_ccm_reg *)SUNXI_CCM_BASE;
 	/*
-	printf("Periph0 PLL:0x%08x\n", readl(&ccm->pll6_cfg));
-	printf("DDR1 Pll:0x%08x\n", readl(&ccm->pll11_cfg));
-	printf("f0:0x%08x\n", readl(&ccm->dram_pll_cfg));
-	printf("f4:0x%08x\n", readl(&ccm->dram_clk_cfg));
-	printf("f8:0x%08x\n", readl(&ccm->dram_pll1_cfg));
-	printf("MBUS rst fc:0x%08x\n", readl(&ccm->mbus_reset));
-	printf("MBUS clk 15c:0x%08x\n", readl(&ccm->mbus0_clk_cfg));
-	printf("AHB1/APB1 :0x%08x\n", readl(&ccm->ahb1_apb1_div));
-	printf("ABP2:0x%08x\n", readl(&ccm->apb2_div));
-	printf("Gating 0:0x%08x\n", readl(&ccm->ahb_gate0));
+	printf("\n");
+	printf("CPU PLL (0x%08x):0x%08x\n", &ccm->pll1_cfg, readl(&ccm->pll1_cfg));
+	printf("CPU AXI:0x%x\n", readl(&ccm->cpu_axi_cfg));
+	printf("Periph0 PLL (0x%08x):0x%08x\n", &ccm->pll6_cfg, readl(&ccm->pll6_cfg));
+	printf("DDR1 Pll (0x%08x):0x%08x\n", &ccm->pll11_cfg, readl(&ccm->pll11_cfg));
+	printf("PLL DDR AUX (0x%08x):0x%08x\n", &ccm->dram_pll_cfg, readl(&ccm->dram_pll_cfg));
+	printf("DRAM Cfg (0x%08x):0x%08x\n", &ccm->dram_clk_cfg, readl(&ccm->dram_clk_cfg));
+	printf("PLL DDR1 Cfg (0x%08x):0x%08x\n", &ccm->dram_pll1_cfg, readl(&ccm->dram_pll1_cfg));
+	printf("MBUS rst (0x%08x):0x%08x\n", &ccm->mbus_reset, readl(&ccm->mbus_reset));
+	printf("MBUS clk (0x%08x):0x%08x\n", &ccm->mbus0_clk_cfg, readl(&ccm->mbus0_clk_cfg));
+	printf("AHB1/APB1 (0x%08x):0x%08x\n", &ccm->ahb1_apb1_div, readl(&ccm->ahb1_apb1_div));
+	printf("ABP2 (0x%08x):0x%08x\n", &ccm->apb2_div, readl(&ccm->apb2_div));
+	printf("Gating 0(0x%08x):0x%08x\n", &ccm->ahb_gate0, readl(&ccm->ahb_gate0));
+	printf("Bus Reset 0(0x%08x):0x%08x\n", &ccm->bus_reset0_cfg, readl(&ccm->bus_reset0_cfg));
+	printf("PLL Lock reg(0x%08x):...\n", &ccm->pll_lock_ctrl);
+
 	printf("------\n");
-	printf("MR0:0x%08x\n", para->dram_mr0);
-	printf("MR1:0x%08x\n", para->dram_mr1);
-	printf("MR2:0x%08x\n", para->dram_mr2);
-	printf("MR3:0x%08x\n", para->dram_mr3);
+	printf("MR0:0x%08x\n", readl(DRAM_MR0));
+	printf("MR1:0x%08x\n", readl(DRAM_MR1));
+	printf("MR2:0x%08x\n", readl(DRAM_MR2));
+	printf("MR3:0x%08x\n", readl(DRAM_MR3));
 	printf("------\n");
+	
 	printf("DRAMTMG0:0x%08x\n", readl(DRAMTMG0));
 	printf("DRAMTMG1:0x%08x\n", readl(DRAMTMG1));
 	printf("DRAMTMG2:0x%08x\n", readl(DRAMTMG2));
@@ -809,22 +796,22 @@ unsigned int dram_autodetect_size(__dram_para_t *para)
 	printf("MC_MCGCR:0x%08x\n", readl(MC_MCGCR));
 	printf("MC_SWONF:0x%08x\n", readl(MC_SWONR));
 	printf("MC_SWOFFR:0x%08x\n", readl(MC_SWOFFR));
-	printf("CPU PLL:0x%x\n", readl(&ccm->pll1_cfg));
-	printf("CPU AXI:0x%x\n", readl(&ccm->cpu_axi_cfg));
-	*/
+	
+	
 	printf("ccm +20:0x%08x\n", readl(0x01c20020));
 	printf("ccm +230:0x%08x\n", readl(0x01c20230));
 	printf("ccm +5c:0x%08x\n", readl(0x01c2005c));
 	printf("ccm +144:0x%08x\n", readl(0x01c20144));
+	*/
+	/* Timer AVS */
+	/*
 	printf("ccm +c8c:0x%08x\n", readl(0x01c20c8c));
 	printf("ccm +c84:0x%08x\n", readl(0x01c20c84));
 	printf("ccm +c80:0x%08x\n", readl(0x01c20c80));
-	
-	printf("Try jump to fel\n");
-	
-	
+	*/
+
 	if (ret == 0) return 1; // Fail
-	printf("DRAM autodetect size\n");
+	printf("\nDRAM autodetect size\n");
 
 	printf("0\n");
 	for (i=0;i<64;i++) {
@@ -844,7 +831,7 @@ unsigned int dram_autodetect_size(__dram_para_t *para)
 	printf("2 %d\n", j);
 	if (j != 63) return 1;
 	para->dram_para1 = (para->dram_para1 & ~0xff0) | (i << 4); 
-	udelay(10);
+	sunxi_delay(10);
 	clrsetbits_le32(MC_WORK_MODE, 0xffc, 0x6a4);
 	/*Row size ? */
 	for (i=0;i<64;i++) {
@@ -856,7 +843,7 @@ unsigned int dram_autodetect_size(__dram_para_t *para)
 	printf("2 %d\n", i);
 	if (i == 63) i = 0; else return 1;
 	para->dram_para1 = (para->dram_para1 & ~ 0xf000) | (i << 12); 
-	udelay(10);
+	sunxi_delay(10);
 	clrsetbits_le32(MC_WORK_MODE, 0xffc, 0xaa0);
 	/*Page/column size ? */
 	for (i = 9; i < 15; i ++) {
@@ -895,7 +882,7 @@ unsigned int dram_simple_test(unsigned int dram_size, unsigned int len)
 	unsigned int i;
 	
 	dram_size >>= 1;
-	dram_size <<= 20; // dram_size 64 becomes 0x2000000 aka 33554432 aka 32MB
+	dram_size <<= 20;
 
 	for (i = 0; i < len; i ++) {
 		writel(0x1234567 + i, DRAM_BASE_ADDR + i*4);
@@ -912,7 +899,7 @@ unsigned int dram_simple_test(unsigned int dram_size, unsigned int len)
 			return 1;
 		}
 	}
-	printf("DRAM simple test OK.\n");
+//	printf("DRAM simple test OK.\n");
 	return 0;
 }
 
@@ -932,11 +919,11 @@ unsigned int do_dram_init(__dram_para_t *para)
 		para->dram_tpr13 |= 0x6000;
 		para->dram_tpr13 |= 0x1;
 	}	
-	printf("DRAM CLK =%d MHZ\n", para->dram_clk);
-	printf("DRAM Type =%d (2:DDR2,3:DDR3)\n", para->dram_type);
-	printf("DRAM zq value: 0x%x\n", para->dram_zq);
+//	printf("DRAM CLK =%d MHZ\n", para->dram_clk);
+//	printf("DRAM Type =%d (2:DDR2,3:DDR3)\n", para->dram_type);
+//	printf("DRAM zq value: 0x%x\n", para->dram_zq);
 	
-	ret = mctl_core_init(para); //sub_1A48
+	ret = mctl_core_init(para);
 	
 	if (ret == 0) {
 		printf("DRAM initial error : 1 !\n");
@@ -946,44 +933,40 @@ unsigned int do_dram_init(__dram_para_t *para)
 	if ((para->dram_para2 & 0x7fff) != 0) {
 		dram_size = 0x7fff & (para->dram_para2 >>16);
 	} else {
-		dram_size = dram_get_size(); //sub_1950,
+		dram_size = dram_get_size();
 		if (dram_size > 0xc00) dram_size = 0xc00;
 		para->dram_para2 = (para->dram_para2 >> 16) | (dram_size << 16);		
 	}
-	printf("DRAM SIZE =%d M\n",dram_size);
-	
-	//loc_1d58
+//	printf("DRAM SIZE =%d M\n",dram_size);
+
 	reg_val = readl(PGCR0) & ~0xf000;
 	if (para->dram_tpr13 & 0x200) {
 		writel(reg_val, PGCR0);
-		printf("HDR/DDR dynamic mode!\n");
+//		printf("HDR/DDR dynamic mode!\n");
 	} else {
 		reg_val |= 0x5000;
 		writel(reg_val, PGCR0);
-		printf("HDR/DDR always on mode!\n");
+//		printf("HDR/DDR always on mode!\n");
 	}
 	reg_val = readl(ZQCR);
 	reg_val |= (0x1U<<31);
 	writel(reg_val, ZQCR);
-	//loc_1d84
 	setbits_le32(ZQCR, 0x80000000);
 	if ((para->dram_tpr13 & 0x100) != 0) {
 		setbits_le32(VTFCR, 0x300);
-		printf("VTF enable\n");		
+//		printf("VTF enable\n");		
 	}
-	//loc_1dc0
+
 	if ((para->dram_tpr13 & 0x4000000) == 0) {
 		setbits_le32(PGCR2, 0x2000);
-		printf("DQ hold enable!\n");
+//		printf("DQ hold enable!\n");
 	} else {
 		clrbits_le32(PGCR2, 0x2000);
-		printf("DQ hold disable!\n");	
+//		printf("DQ hold disable!\n");	
 	}
-	//loc_1de8
 	if ((para->dram_tpr13 & 0x8000000) == 0) {
 		set_master_priority();	
 	}
-	//loc_1dfc
 	dram_enable_all_master();
 	ret = dram_simple_test(dram_size, 0x100);
 	if (ret != 0) return 0;
@@ -999,7 +982,7 @@ unsigned long sunxi_dram_init(void)
 #ifdef CONFIG_SUNXI_DRAM_CLK
 	dram_para.dram_clk		= CONFIG_SUNXI_DRAM_CLK;
 #else		
-	dram_para.dram_clk		= 408;
+	dram_para.dram_clk		= 408;		// Keep in mind that UserManual says maximum SDRAM freq is 400MHz
 #endif
 	dram_para.dram_type		= 2;
 #ifdef CONFIG_SUNXI_DRAM_ZQ		

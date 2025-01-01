@@ -344,6 +344,7 @@ struct sunxi_ccm_reg {
 
 
 #ifndef __ASSEMBLY__
+void sunxi_delay(volatile  unsigned int n);
 void clock_set_pll1(unsigned int hz);
 void clock_set_pll3(unsigned int hz);
 void clock_set_pll3_factors(int m, int n);
