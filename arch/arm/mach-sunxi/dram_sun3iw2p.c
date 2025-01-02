@@ -179,7 +179,7 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 	reg_val &= ~0xffff;
 	reg_val |= ((para->dram_zq) & 0xffff);
 	writel(reg_val, ZQCR);
-	if ( ((para->dram_tpr13 >> 2) & 3) == 1) { // (((para->dram_tpr13 >> 2) & 3) - 1) is dqs_gating_mode
+	if ( ((para->dram_tpr13 >> 2) & 3) == 1) { // ((para->dram_tpr13 >> 2) & 3) is dqs_gating_mode
 		reg_val = 0x52;
 		writel(reg_val, PIR);
 		reg_val = 0x53;
@@ -252,7 +252,7 @@ unsigned int mctl_channel_init(unsigned char channel, __dram_para_t *para)
 //            ;
 //    }
 	/////////////////////////////////////////////////////////////////
-	// END OF part from mctl_stanby abscent here
+	// END OF part from mctl_stanby
 	/////////////////////////////////////////////////////////////////
     /***********************************
     Function : Training Information
@@ -381,10 +381,11 @@ unsigned int ccm_set_pll_ddr1_clk(__dram_para_t *para)
 	setbits_le32(&ccm->pll11_cfg, 0x40000000);
 	while ((readl(&ccm->pll11_cfg) & 0x40000000) != 0) //bit30 cleared - valid
 		;
+	sunxi_delay(1);
 	/* Enable PLL_DDR1 LOCK Function */
     setbits_le32(&ccm->pll_lock_ctrl, 0x400);
 	/* Poll PLL valid and locked */
-    while ((readl(&ccm->pll11_cfg) & 0x10000000) != 0) //bit28 set - locked
+    while ((readl(&ccm->pll11_cfg) & 0x10000000) == 0) //bit28 set - locked
 		;
     /*Disable PLL_DDR1 LOCK Function */
     clrbits_le32(&ccm->pll_lock_ctrl, 0x400);
@@ -428,8 +429,8 @@ void mctl_clk_init(__dram_para_t *para)
 	//clock_set_pll11(para->dram_clk, false);		// external function from clock_sun3iw2p
 	
 	reg_val = readl(&ccm->dram_clk_cfg);
-	reg_val &= ~0x300000;							// DRAM Controller clk becomes DDR1_PLL
-	reg_val |= 0x100000;							// Use Periph0(2x) 
+	reg_val &= ~0x300000;							// DRAM Controller clk src DDR1_PLL
+	reg_val |= 0x100000;							// Use clk src Periph0(2x) 
 	para->dram_clk = ret >> 1;						// ddr_pll / 2
 	//printf("pll_ddr1 = %d MHz\n", ret);
 	sunxi_delay(10);
@@ -438,6 +439,8 @@ void mctl_clk_init(__dram_para_t *para)
 	reg_val |= 0x110000;							// Validate configuration
 	writel(reg_val, &ccm->dram_clk_cfg);
 	sunxi_delay(10);
+	//while((&ccm->dram_clk_cfg & 0x10000) != 0)
+	//	;
 	setbits_le32(&ccm->bus_reset0_cfg, 0x4000);		// Release AHB Domain Reset
 	writel(0x4000, &ccm->bus_reset0_cfg);
 	setbits_le32(&ccm->ahb_gate0, 0x4000);			// Turn On AHB Domain CLK
@@ -460,10 +463,10 @@ void mctl_com_init(__dram_para_t *para)
 	reg_val = readl(MC_WORK_MODE);
 	reg_val &= ~0xff0000;
 	reg_val &= ~0xf000;
-	reg_val |= (para->dram_tpr13 << 14) & 0x80000;
-	reg_val |= (para->dram_type << 16) & 0x70000;
 	reg_val |= 0x400000;		
 	reg_val |= 0x1000;
+	reg_val |= (para->dram_tpr13 << 14) & 0x80000;
+	reg_val |= (para->dram_type << 16) & 0x70000;
 	writel(reg_val, MC_WORK_MODE);
 	sunxi_delay(10);
 	
@@ -581,7 +584,7 @@ void auto_set_timing_para(__dram_para_t *para)
 			trefi = 0x62;		//var_7c
 			trfc = 0x80;		//var_64
 		}
-		//				 var_74   r11          var_78		   var_70         var_2c aka tccd
+		//				 var_74   r11          var_78		   var_70         var_2c aka tccd aka 2<<21
 		para->dram_tpr0 = trc | (trcd << 6) | (trrd << 11) | (tfaw << 15) | 0x400000;
 		//				var_6c	  r5			r9			var_5c			var_5c			var_68	
 		para->dram_tpr1 = tras | (trp << 6) | (twr << 11) | (trtp << 15) | (twtr << 20) | (txp << 23);
@@ -595,9 +598,8 @@ void auto_set_timing_para(__dram_para_t *para)
 		trcd = (para->dram_tpr0 >> 6) & 0x1f; 						//r11
 		trp = (para->dram_tpr1 >> 6) & 0x1f;						//r5
 		trc = para->dram_tpr0 & 0x3f; 								//var_74
-		trtp = (para->dram_tpr1 >> 20) & 7; 						//r8 aka var_5c
+		twtr = (para->dram_tpr1 >> 20) & 7; 						//r8 aka var_5c
 		txp = (para->dram_tpr1 >> 23) & 0x1f; 						//var_68
-		twtr = trtp;												//var_5c
 		tras = para->dram_tpr1 & 0x3f;								//var_6c
 		trefi = para->dram_tpr2 & 0xfff;							//var_7c
 		trfc = (para->dram_tpr2 >> 12) & 0x1ff;						//var_64
@@ -609,7 +611,7 @@ void auto_set_timing_para(__dram_para_t *para)
 		if ((para->dram_clk/2) > 204) t_rdata_en = 2; else t_rdata_en = 1;		//var_44
 		if ((para->dram_clk/2) > 204) mr0 = 0xe73; else mr0 = 0xa63;			//var_4c
 		tdinit3 = para->dram_clk + 1;											//var_50
-		twr2rd = twtr + 5;	 													//var_38
+		twr2rd = twtr + 5;	 													//var_38 tcwl+2+twtr
 		tdinit0 = para->dram_clk * 200 + 1;										//var_60
 		mr1 = para->dram_mr1;													//var_48
 		tdinit2 = para->dram_clk * 200 + 1;										//var_54
@@ -618,15 +620,15 @@ void auto_set_timing_para(__dram_para_t *para)
 		tdinit1 = para->dram_clk * 400 / 1000 + 1;								//var_58
 		if ((para->dram_clk/2) > 204) tcl = 4; else tcl = 3; 					//r3
 		tmod = 0xc;																//var_40
-		twtp = twr + 5; 														//r9
+		twtp = twr + 5; 														//r9 tcwl+2+twr
 		tcksrx = 5;																//r12
 		tcksre = 5;																//r12
-		tckesr = 4; 															//r0
+		tckesr = 4; 															//r0 tcke+1
 		tcwl = 3; 																//r8
 		wr_latency = 1; 														//r2
 		mr2 = 0;																//r1
 		mr3 = 0;																//r1
-		trd2wr = tcl;															//var_34
+		trd2wr = tcl;															//var_34 tcl+2+1-tcwl
 		tmrd = 2;																//r6
 	} else if (para->dram_type == 3) {
 		trasmax = para->dram_clk / 30;											//var_3c
@@ -722,7 +724,7 @@ void auto_set_timing_para(__dram_para_t *para)
 	writel(reg_val, RFSHTMG);
 }
 
-//ret: 0 - ok, 1 - fail
+//ret: 1 - ok, 0 - fail
 unsigned int dram_autodetect_size(__dram_para_t *para)
 {
 	unsigned int i=0, j=0;
@@ -809,8 +811,20 @@ unsigned int dram_autodetect_size(__dram_para_t *para)
 	printf("ccm +c84:0x%08x\n", readl(0x01c20c84));
 	printf("ccm +c80:0x%08x\n", readl(0x01c20c80));
 	*/
-
-	if (ret == 0) return 1; // Fail
+	/*
+	printf("dram_para2:0x%08x\n", para->dram_para2);
+	printf("mr0:0x%08x\n", para->dram_mr0);
+	printf("mr1:0x%08x\n", para->dram_mr1);
+	printf("mr2:0x%08x\n", para->dram_mr2);
+	printf("mr3:0x%08x\n", para->dram_mr3);
+	printf("tpr0:0x%08x\n", para->dram_tpr0);
+	printf("tpr1:0x%08x\n", para->dram_tpr1);
+	printf("tpr2:0x%08x\n", para->dram_tpr2);
+	printf("tpr3:0x%08x\n", para->dram_tpr3);
+	printf("tpr7:0x%08x\n", para->dram_tpr7);
+	printf("tpr13:0x%08x\n", para->dram_tpr13);
+	*/
+	if (ret == 0) return 0; // Fail
 	printf("\nDRAM autodetect size\n");
 
 	printf("0\n");
@@ -829,7 +843,7 @@ unsigned int dram_autodetect_size(__dram_para_t *para)
 		if (j == 63) break;
 	}
 	printf("2 %d\n", j);
-	if (j != 63) return 1;
+	if (j != 63) return 0;
 	para->dram_para1 = (para->dram_para1 & ~0xff0) | (i << 4); 
 	sunxi_delay(10);
 	clrsetbits_le32(MC_WORK_MODE, 0xffc, 0x6a4);
@@ -841,7 +855,7 @@ unsigned int dram_autodetect_size(__dram_para_t *para)
 		}
 	}
 	printf("2 %d\n", i);
-	if (i == 63) i = 0; else return 1;
+	if (i == 63) i = 0; else return 0;
 	para->dram_para1 = (para->dram_para1 & ~ 0xf000) | (i << 12); 
 	sunxi_delay(10);
 	clrsetbits_le32(MC_WORK_MODE, 0xffc, 0xaa0);
@@ -856,11 +870,11 @@ unsigned int dram_autodetect_size(__dram_para_t *para)
 		else if ((i == 13) && (j == 63)) break;
 		else if (i == 14) {i = 13; break;};
 	}
-	if (j != 63) return 1;
+	if (j != 63) return 0;
 	if (i != 0) i = 1 << (i - 10);
 	
 	para->dram_para1 = (para->dram_para1 & ~0xf ) | (1 << (i - 10));
-	return 0;
+	return 1;
 }
 
 // ret: 0 - fail, 1 - ok
@@ -908,14 +922,13 @@ unsigned int dram_simple_test(unsigned int dram_size, unsigned int len)
 unsigned int do_dram_init(__dram_para_t *para)
 {
 	unsigned int reg_val;
-	unsigned int ret = 1;
+	unsigned int ret = 0;
 	unsigned int dram_size = 0;
 
 	//printf("Dram boot drive info v.0.2\n");
-	if ((para->dram_tpr13 & 1) == 0) {
-		ret = dram_autodetect_size(para);
-		if (ret == 0) return 0;
-	} else if ((para->dram_tpr13 & 0x8000) == 0) {
+	if ((para->dram_tpr13 & 1) == 0) ret = dram_autodetect_size(para);
+	if (ret == 1) return 0;
+	if ((para->dram_tpr13 & 0x8000) == 0) {
 		para->dram_tpr13 |= 0x6000;
 		para->dram_tpr13 |= 0x1;
 	}	

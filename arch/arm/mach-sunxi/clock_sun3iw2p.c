@@ -18,21 +18,14 @@
 
 void sunxi_delay(volatile  unsigned int n)
 {
-/*    n = n * 100;
-
+ /*   n = n * 1000;
     while (--n)
-        ;*/
-/*
-	do {
-		// ARM926EJ-S code do not have sdelay
-		volatile int i = 200;
+        ;
+*/
 
-		while (i > 0) i--;
-	} while(0);
-*/	
 	unsigned int reg_val, cnt;
 	reg_val = readl(0x01c20c84);
-	cnt = n + (reg_val << 1);
+	cnt = n*1000 + (reg_val << 1);
 	while ((readl(0x01c20c84)<<1) < cnt)
 		;
 	
@@ -49,6 +42,14 @@ void clock_init_safe(void)
 	reg_val = 0;
 	writel(reg_val, 0x01c00000);
 	// Plus boot0  saves 0x01c00004 in Stack, Why? What for?
+
+	/* AVS - Audio-Video-sync counter init */
+	setbits_le32(&ccm->avs_clk_cfg,  0x80000000);
+	reg_val = 0x17;
+	writel(reg_val, 0x01c20c8c);		//avs cnt divider reg		
+	reg_val = 0;
+	writel(reg_val, 0x01c20c84);		//avs cnt0
+	setbits_le32(0x01c20c80, 1);		//avs cnt ctl	
 	
 	/* Open Gate for PIO */
 	setbits_le32(&ccm->apb1_gate, (1<<5));
@@ -136,13 +137,7 @@ void clock_init_safe(void)
 	clrsetbits_le32(0x01c2005c, 0x10000, 0x20000);
 	setbits_le32(0x01c2005c, 3);
 	
-	/* AVS - Audio-Video-sync counter init */
-	setbits_le32(&ccm->avs_clk_cfg,  0x80000000);
-	reg_val = 0x17;
-	writel(reg_val, 0x01c20c8c);		//avs cnt divider reg		
-	reg_val = 0;
-	writel(reg_val, 0x01c20c84);		//avs cnt0
-	setbits_le32(0x01c20c80, 1);		//avs cnt ctl
+
 }
 #endif
 
@@ -471,6 +466,8 @@ void clock_set_pll11(unsigned int clk, bool sigma_delta_enable)
 	setbits_le32(&ccm->bus_reset0_cfg, (1<<14)); 
 	/* Open clock gate for SDRAM */
 	setbits_le32(&ccm->ahb_gate0, (1<<14)); 
+	/* PLL11 DDR1 Lock disable */
+	clrbits_le32(&ccm->pll_lock_ctrl, CCM_PLL_LOCK_DDR1);
 }
 
 //Video0
